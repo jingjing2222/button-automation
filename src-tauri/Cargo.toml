@@ -1,0 +1,17 @@
+[package]
+name = "button-automation"
+version = "1.0.0"
+description = "Tauri button inspection and interval click automation app"
+authors = ["button-automation"]
+edition = "2021"
+license = "ISC"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2.10.1", features = [] }
+url = "2"

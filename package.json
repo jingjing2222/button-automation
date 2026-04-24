@@ -1,7 +1,7 @@
 {
   "name": "button-automation",
   "version": "1.0.0",
-  "description": "",
+  "description": "Tauri button inspection and interval click automation app",
   "homepage": "https://github.com/jingjing2222/button-automation#readme",
   "bugs": {
     "url": "https://github.com/jingjing2222/button-automation/issues"
@@ -12,9 +12,25 @@
   },
   "license": "ISC",
   "author": "",
-  "type": "commonjs",
-  "main": "index.js",
+  "type": "module",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite --host 127.0.0.1 --port 1420",
+    "build:web": "tsc --noEmit && vite build",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "build": "tauri build",
+    "build:mac": "tauri build --bundles app,dmg",
+    "build:windows": "tauri build --target x86_64-pc-windows-msvc",
+    "check": "npm run build:web && cargo check --manifest-path src-tauri/Cargo.toml"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.10.1",
+    "html2canvas": "^1.4.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.10.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10"
   }
 }
