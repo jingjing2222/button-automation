@@ -576,18 +576,32 @@ fn build_injection_script(config: &serde_json::Value) -> Result<String, String> 
   function isClickable(element) {{
     if (!element || !(element instanceof Element)) return false;
     if (element.id === overlayId || element.id === selectedOverlayId) return false;
+    return isSemanticClickable(element) || isWeakClickable(element);
+  }}
+
+  function isSemanticClickable(element) {{
+    if (!element || !(element instanceof Element)) return false;
     const tag = element.tagName.toLowerCase();
     const role = element.getAttribute("role");
     const type = (element.getAttribute("type") || "").toLowerCase();
-    const style = window.getComputedStyle(element);
     return (
       tag === "button" ||
       tag === "summary" ||
-      tag === "a" ||
+      (tag === "a" && element.hasAttribute("href")) ||
+      (tag === "area" && element.hasAttribute("href")) ||
       role === "button" ||
+      role === "link" ||
       element.hasAttribute("onclick") ||
+      (tag === "input" && ["button", "submit", "reset"].includes(type))
+    );
+  }}
+
+  function isWeakClickable(element) {{
+    if (!element || !(element instanceof Element)) return false;
+    const style = window.getComputedStyle(element);
+    return (
       element.hasAttribute("data-testid") ||
-      (tag === "input" && ["button", "submit", "reset"].includes(type)) ||
+      element.hasAttribute("data-test") ||
       style.cursor === "pointer"
     );
   }}
@@ -595,12 +609,34 @@ fn build_injection_script(config: &serde_json::Value) -> Result<String, String> 
   function nearestClickable(element) {{
     let node = element;
     let depth = 0;
+    const ancestors = [];
     while (node && node !== document.body && depth < 8) {{
-      if (isClickable(node) && isVisible(node)) return node;
+      if (node instanceof Element && node.id !== overlayId && node.id !== selectedOverlayId) {{
+        ancestors.push(node);
+      }}
       node = node.parentElement;
       depth += 1;
     }}
-    return null;
+    return (
+      ancestors.find((candidate) => isSemanticClickable(candidate) && isVisible(candidate)) ||
+      ancestors.find((candidate) => isWeakClickable(candidate) && isVisible(candidate)) ||
+      null
+    );
+  }}
+
+  function activationTargetFor(element) {{
+    let node = element;
+    let depth = 0;
+    while (node && node !== document.body && depth < 8) {{
+      if (node instanceof Element && isSemanticClickable(node) && isVisible(node)) return node;
+      node = node.parentElement;
+      depth += 1;
+    }}
+    return nearestClickable(element) || element;
+  }}
+
+  function clamp(value, min, max) {{
+    return Math.min(Math.max(value, min), max);
   }}
 
   function serializeElement(element) {{
@@ -819,13 +855,53 @@ fn build_injection_script(config: &serde_json::Value) -> Result<String, String> 
 
   function clickElement(element) {{
     if (!element) return;
-    element.scrollIntoView({{ block: "center", inline: "center", behavior: "smooth" }});
+    const activationTarget = activationTargetFor(element);
+    activationTarget.scrollIntoView({{ block: "center", inline: "center", behavior: "auto" }});
     window.setTimeout(() => {{
-      drawOverlay(element, selectedOverlayId, true);
-      element.click();
-      log("success", `눌렀다: ${{labelFor(element) || runtime.selected?.name || "button"}}`);
+      const rect = activationTarget.getBoundingClientRect();
+      const clientX = clamp(rect.left + rect.width / 2, 1, window.innerWidth - 1);
+      const clientY = clamp(rect.top + rect.height / 2, 1, window.innerHeight - 1);
+      const hit = document.elementFromPoint(clientX, clientY);
+      const clickTarget = activationTargetFor(hit || activationTarget);
+      const link = clickTarget.closest && clickTarget.closest("a[href]");
+
+      drawOverlay(clickTarget, selectedOverlayId, true);
+
+      const eventInit = {{
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        button: 0,
+        buttons: 1,
+        clientX,
+        clientY,
+      }};
+      const pointerEvent = window.PointerEvent || window.MouseEvent;
+      clickTarget.dispatchEvent(new pointerEvent("pointerdown", eventInit));
+      clickTarget.dispatchEvent(new MouseEvent("mousedown", eventInit));
+      clickTarget.dispatchEvent(new pointerEvent("pointerup", {{ ...eventInit, buttons: 0 }}));
+      clickTarget.dispatchEvent(new MouseEvent("mouseup", {{ ...eventInit, buttons: 0 }}));
+
+      if (typeof clickTarget.click === "function") {{
+        clickTarget.click();
+      }} else {{
+        clickTarget.dispatchEvent(new MouseEvent("click", {{ ...eventInit, buttons: 0 }}));
+      }}
+
+      log("success", `눌렀다: ${{labelFor(clickTarget) || runtime.selected?.name || "button"}}`);
+
+      if (link && link.href) {{
+        const beforeUrl = window.location.href;
+        window.setTimeout(() => {{
+          if (window.location.href === beforeUrl) {{
+            log("info", `링크 이동 fallback: ${{link.href}}`);
+            window.location.href = link.href;
+          }}
+        }}, 160);
+      }}
+
       takeSnapshot();
-    }}, 80);
+    }}, 120);
   }}
 
   function clickOnce() {{

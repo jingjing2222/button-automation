@@ -1,6 +1,6 @@
 [package]
 name = "button-automation"
-version = "1.0.1"
+version = "1.0.2"
 description = "Tauri button inspection and interval click automation app"
 authors = ["button-automation"]
 edition = "2021"
