@@ -131,8 +131,10 @@ function renderState(state: ClientState): void {
     els.targetStatus.textContent = state.targetUrl;
     els.targetUrl.value = state.targetUrl;
   } else {
-    els.targetStatus.textContent = "Google 대상 웹뷰를 준비 중입니다.";
-    els.targetUrl.value = DEFAULT_TARGET_URL;
+    els.targetStatus.textContent = "대상 웹뷰를 준비 중입니다.";
+    if (els.targetUrl.value.trim().length === 0) {
+      els.targetUrl.value = DEFAULT_TARGET_URL;
+    }
   }
 
   els.runState.textContent = state.running
@@ -238,9 +240,10 @@ async function refreshState(): Promise<void> {
 
 els.form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const url = els.targetUrl.value.trim() || DEFAULT_TARGET_URL;
   const button = els.form.querySelector<HTMLButtonElement>("button[type='submit']")!;
   setBusy(button, true);
-  const state = await command<ClientState>("open_target", { url: DEFAULT_TARGET_URL });
+  const state = await command<ClientState>("open_target", { url });
   setBusy(button, false);
   if (state) {
     renderState(state);

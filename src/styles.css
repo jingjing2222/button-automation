@@ -79,11 +79,6 @@ input:focus {
   box-shadow: 0 0 0 3px rgba(30, 111, 92, 0.14);
 }
 
-input[readonly] {
-  color: #526057;
-  background: #f8faf6;
-}
-
 #app {
   min-height: 100vh;
   display: flex;
